@@ -1,0 +1,15 @@
+## Interface: 11200
+## Title: COE HealAI
+## Notes: Shaman Totem Manager + Smart Healing (Vanilla 1.12)
+## Version: 3.10.3
+## SavedVariables: COE_Saved, COEFramePositions
+## SavedVariablesPerCharacter: COE_SavedTotemSets, COE_CustomTotemSets, COE_DisplayedTotems, COE_TotemBars
+
+Chronos.xml
+CallOfElements.xml
+COE_Heal.xml
+COE_Totem.xml
+COE_Config.xml
+COE_ConfigTemplates.xml
+COE_SuperWoW_QoL.lua
+COE_HealAI_UI.lua

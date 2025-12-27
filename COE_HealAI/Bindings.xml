@@ -1,0 +1,170 @@
+<!--
+
+	CALL OF ELEMENTS
+	The All-In-One Shaman Addon
+	
+	by Wyverex (2006)
+	
+	
+	Key Bindings
+	
+-->
+
+<Bindings>
+	<!-- Configuration dialog -->
+	<Binding name="COESHOWCONFIG"  header="CALLOFELEMENTS">
+		if( COE and COE.Initialized ) then
+			COE:ToggleConfigFrame();
+		end
+	</Binding>
+
+	<!-- ============================================
+	     HEALAI KEYBINDINGS (Primary healing system)
+	     ============================================ -->
+	
+	<!-- HealAI: One-button smart healing
+	     - Checks for dispellable debuffs first (if enabled)
+	     - Then checks Chain Heal conditions
+	     - Then heals lowest HP / tank priority target
+	     - Uses HealComm, thresholds, smart rank selection
+	     - Respects spam mode toggle in settings -->
+	<Binding name="COEHEALBRAIN" header="COE_HEALAI">
+		if( COE and COE.Initialized and COE_Heal ) then
+			COE_Heal:HealBrain();
+		end
+	</Binding>
+	
+	<!-- HealAI Dispel: Dedicated dispel-only keybind
+	     - Cures Poison or Disease based on settings
+	     - Respects HP gate, tank priority, throttle
+	     - Does NOT heal, only dispels -->
+	<Binding name="COEDISPEL">
+		if( COE and COE.Initialized and COE_Heal ) then
+			COE_Heal:Dispel();
+		end
+	</Binding>
+
+	<!-- ============================================
+	     LEGACY KEYBINDINGS (kept for compatibility)
+	     These call older functions but still work.
+	     HealAI is the recommended keybind.
+	     ============================================ -->
+	
+	<!-- Legacy: BestHeal - threshold-based smart healing
+	     (Now superseded by HealAI) -->
+	<Binding name="COEBESTHEAL">
+		if( COE and COE.Initialized and COE_Heal ) then
+			COE_Heal:BestHeal();
+		end
+	</Binding>
+	
+	<!-- Legacy: BattleHeal - fast heal mode
+	     (Now superseded by HealAI emergency logic) -->
+	<Binding name="COEBATTLEHEAL">
+		if( COE and COE.Initialized and COE_Heal ) then
+			COE_Heal:BattleHeal();
+		end
+	</Binding>
+
+	<!-- Throw suggested totem -->
+	<Binding name="COETHROWADVISED">
+		if( COE and COE.Initialized and COE_Totem ) then
+			COE_Totem:ThrowAdvisedTotem();
+		end
+	</Binding>
+
+	<!-- Totem sets -->
+	<Binding name="COENEXTSET">
+		if( COE and COE.Initialized and COE_Totem ) then
+			COE_Totem:SwitchToNextSet();
+		end
+	</Binding>
+	<Binding name="COETHROWSET">
+		if( COE and COE.Initialized and COE_Totem ) then
+			COE_Totem:ThrowSet();
+		end
+	</Binding>
+	<Binding name="COERESTARTSET">
+		if( COE and COE.Initialized and COE_Totem ) then
+			COE_Totem:ResetSetCycle();
+		end
+	</Binding>
+
+	<!-- Earth totems -->
+	<Binding name="TOTEMEARTH1"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Earth", 1 ); end
+	</Binding>
+	<Binding name="TOTEMEARTH2"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Earth", 2 ); end
+	</Binding>
+	<Binding name="TOTEMEARTH3"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Earth", 3 ); end
+	</Binding>
+	<Binding name="TOTEMEARTH4"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Earth", 4 ); end
+	</Binding>
+	<Binding name="TOTEMEARTH5"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Earth", 5 ); end
+	</Binding>
+
+	<!-- Fire totems -->
+	<Binding name="TOTEMFIRE1"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Fire", 1 ); end
+	</Binding>
+	<Binding name="TOTEMFIRE2"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Fire", 2 ); end
+	</Binding>
+	<Binding name="TOTEMFIRE3"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Fire", 3 ); end
+	</Binding>
+	<Binding name="TOTEMFIRE4"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Fire", 4 ); end
+	</Binding>
+	<Binding name="TOTEMFIRE5"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Fire", 5 ); end
+	</Binding>
+
+	<!-- Water totems -->
+	<Binding name="TOTEMWATER1"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 1 ); end
+	</Binding>
+	<Binding name="TOTEMWATER2"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 2 ); end
+	</Binding>
+	<Binding name="TOTEMWATER3"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 3 ); end
+	</Binding>
+	<Binding name="TOTEMWATER4"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 4 ); end
+	</Binding>
+	<Binding name="TOTEMWATER5"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 5 ); end
+	</Binding>
+	<Binding name="TOTEMWATER6"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Water", 6 ); end
+	</Binding>
+
+	<!-- Air totems -->
+	<Binding name="TOTEMAIR1"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 1 ); end
+	</Binding>
+	<Binding name="TOTEMAIR2"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 2 ); end
+	</Binding>
+	<Binding name="TOTEMAIR3"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 3 ); end
+	</Binding>
+	<Binding name="TOTEMAIR4"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 4 ); end
+	</Binding>
+	<Binding name="TOTEMAIR5"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 5 ); end
+	</Binding>
+	<Binding name="TOTEMAIR6"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 6 ); end
+	</Binding>
+	<Binding name="TOTEMAIR7"  header="CALLOFELEMENTS">
+		if( COE_Totem ) then COE_Totem:ThrowTotem( "Air", 7 ); end
+	</Binding>
+
+</Bindings>
