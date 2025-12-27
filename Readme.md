@@ -1,6 +1,6 @@
 **This is a fork of MarcelineVQ's Call of Elements, extended with a smart
 healing module. The addon provides comprehensive Shaman tools
-including totem management, intelligent healing automation, accessibility, and quality-of-life features.**
+including totem management, intelligent healing assistance, accessibility, and quality-of-life features.**
 
 This fork was originally  created to support handheld / controller users, it now functions fully on PC.
 
