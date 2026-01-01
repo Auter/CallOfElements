@@ -2,18 +2,28 @@
 -- SuperWoW-powered Quality of Life features for HealAI
 -- 1) Totem Range Overview Panel - shows how many group members are in range of active totems
 -- 2) Tank Distance Hint - shows distance to configured tank(s)
--- Both features require SuperWoW's UnitPosition API and are purely informational.
+-- 3) Shield Reminder - shows shield buff status (does NOT require SuperWoW)
+-- Features 1 & 2 require SuperWoW's UnitPosition API and are purely informational.
 
 COE_QoL = COE_QoL or {};
 
--- Constants
+-- Constants (MUST be defined before OnUpdate handler uses them)
 local TOTEM_RANGE_YARDS = 30;
 local TANK_DISTANCE_UPDATE_INTERVAL = 0.3;
 local TOTEM_UPDATE_INTERVAL = 0.5;
+local SHIELD_UPDATE_INTERVAL = 0.3;  -- Shield reminder update interval
+
+-- Shield names to detect (for tooltip scanning)
+local SHIELD_NAMES = {
+    "Lightning Shield",
+    "Water Shield", 
+    "Earth Shield",
+};
 
 -- State tracking
 COE_QoL.lastTankUpdate = 0;
 COE_QoL.lastTotemUpdate = 0;
+COE_QoL.lastShieldUpdate = 0;
 
 -- Per-element totem anchors (set when totem is dropped)
 -- Format: TotemAnchors["Earth"] = {x = 123.4, y = 567.8}
@@ -513,27 +523,34 @@ end
 
 
 --[[ ================================================================
-    ONUPDATE HANDLER - Throttled updates for both features
+    ONUPDATE HANDLER - Throttled updates for all QoL features
 ================================================================ ]]--
 
 function COE_QoL:OnUpdate(elapsed)
     local now = GetTime();
     
-    if not self:HasPositionAPI() then
-        return;
-    end
-    
-    if COE_Saved and COE_Saved.HB_ShowTankDistance == 1 then
-        if now - self.lastTankUpdate >= TANK_DISTANCE_UPDATE_INTERVAL then
-            self.lastTankUpdate = now;
-            self:UpdateTankDistanceDisplay();
+    -- SuperWoW-dependent features
+    if self:HasPositionAPI() then
+        if COE_Saved and COE_Saved.HB_ShowTankDistance == 1 then
+            if now - (self.lastTankUpdate or 0) >= TANK_DISTANCE_UPDATE_INTERVAL then
+                self.lastTankUpdate = now;
+                self:UpdateTankDistanceDisplay();
+            end
+        end
+        
+        if COE_Saved and COE_Saved.HB_ShowTotemRange == 1 then
+            if now - (self.lastTotemUpdate or 0) >= TOTEM_UPDATE_INTERVAL then
+                self.lastTotemUpdate = now;
+                self:UpdateTotemRangeDisplay();
+            end
         end
     end
     
-    if COE_Saved and COE_Saved.HB_ShowTotemRange == 1 then
-        if now - self.lastTotemUpdate >= TOTEM_UPDATE_INTERVAL then
-            self.lastTotemUpdate = now;
-            self:UpdateTotemRangeDisplay();
+    -- Shield Reminder (does NOT require SuperWoW)
+    if COE_Saved and COE_Saved.HB_ShieldReminder == 1 then
+        if now - (self.lastShieldUpdate or 0) >= SHIELD_UPDATE_INTERVAL then
+            self.lastShieldUpdate = now;
+            COE_HealAI_UpdateShieldReminder();
         end
     end
 end
@@ -598,6 +615,7 @@ function COE_QoL:Initialize()
     
     self:CreateTotemRangeFrame();
     self:CreateTankDistanceFrame();
+    self:CreateShieldReminderFrame();  -- NEW: Shield Reminder
     
     -- Hook totem activation for anchor tracking
     self:HookTotemActivation();
@@ -609,11 +627,311 @@ function COE_QoL:Initialize()
         if COE_Saved.HB_ShowTankDistance == 1 then
             self:SetTankDistanceVisible(true);
         end
+        if COE_Saved.HB_ShieldReminder == 1 then
+            self:SetShieldReminderVisible(true);
+        end
     end
     
     if self:HasPositionAPI() then
         if COE and COE.DebugMode then
             COE:DebugMessage("COE_QoL: UnitPosition available, QoL features enabled");
         end
+    end
+end
+
+
+--[[ ================================================================
+    SHIELD REMINDER FEATURE
+    
+    Displays a simple indicator showing if Water/Lightning/Earth Shield
+    is active on the player. Uses standard UnitBuff API (no SuperWoW required).
+    
+    Visual states:
+    - "Shield – Active <Name>(<stacks>)" (green): shield with 4+ stacks
+    - "Shield – Low <Name>(<stacks>)" (yellow): shield with 1-3 stacks
+    - "Shield – MISSING" (red): no shield buff detected
+    
+    Shield types tracked:
+    - Lightning Shield (standard Shaman shield)
+    - Water Shield (restoration talent)
+    - Earth Shield (Turtle WoW custom, if present)
+================================================================ ]]--
+
+-- NOTE: SHIELD_UPDATE_INTERVAL, SHIELD_NAMES, and COE_QoL.lastShieldUpdate 
+-- are defined at the TOP of this file to ensure they exist before OnUpdate runs
+
+
+--[[ ----------------------------------------------------------------
+    FUNCTION: COE_HealAI_GetShieldState
+    
+    PURPOSE: Robust shield detection that never returns nil for stacks
+    
+    Parameters:
+    - unit: unit ID (typically "player")
+    
+    Returns:
+    - state: "MISSING", "LOW", or "OK"
+    - shieldName: name of active shield, or nil if missing
+    - stacks: stack count (integer, ALWAYS returns a number, never nil)
+-------------------------------------------------------------------]]
+function COE_HealAI_GetShieldState(unit)
+    -- Default return values - stacks is ALWAYS a number
+    local state = "MISSING";
+    local shieldName = nil;
+    local stacks = 0;
+    
+    -- Early out if unit doesn't exist
+    if not unit or not UnitExists(unit) then
+        if COE and COE.DebugMode then
+            COE:DebugMessage("ShieldReminder: unit doesn't exist");
+        end
+        return state, shieldName, stacks;
+    end
+    
+    -- Scan all buffs on the unit
+    local buffIndex = 1;
+    while buffIndex <= 40 do  -- Safety limit
+        local texture, stackCount = UnitBuff(unit, buffIndex);
+        if not texture then 
+            break;  -- No more buffs
+        end
+        
+        -- CRITICAL: Safely normalize stack count to a number (never nil)
+        local safeStacks = 0;
+        if stackCount ~= nil and type(stackCount) == "number" then
+            safeStacks = stackCount;
+        end
+        
+        -- Try to get buff name via tooltip
+        local buffName = nil;
+        if COETotemTT then
+            COETotemTT:SetOwner(UIParent, "ANCHOR_NONE");
+            COETotemTT:ClearLines();
+            COETotemTT:SetUnitBuff(unit, buffIndex);
+            if COETotemTTTextLeft1 then
+                buffName = COETotemTTTextLeft1:GetText();
+            end
+        end
+        
+        -- Check if this buff matches any of our tracked shields
+        if buffName and type(buffName) == "string" then
+            for _, shieldPattern in ipairs(SHIELD_NAMES) do
+                if string.find(buffName, shieldPattern) then
+                    -- Found a shield!
+                    shieldName = buffName;
+                    stacks = safeStacks;  -- Already guaranteed to be a number
+                    
+                    -- Determine state based on stack count
+                    -- SAFE: stacks is guaranteed to be a number here
+                    if stacks >= 1 and stacks <= 3 then
+                        state = "LOW";
+                    elseif stacks > 3 then
+                        state = "OK";
+                    else
+                        -- stacks == 0: treat as OK (some shields don't show stacks)
+                        state = "OK";
+                    end
+                    
+                    if COE and COE.DebugMode then
+                        COE:DebugMessage("ShieldReminder: Found " .. shieldName .. " stacks=" .. tostring(stacks) .. " state=" .. state);
+                    end
+                    
+                    return state, shieldName, stacks;
+                end
+            end
+        end
+        
+        buffIndex = buffIndex + 1;
+    end
+    
+    -- No shield found
+    if COE and COE.DebugMode then
+        COE:DebugMessage("ShieldReminder: No shield buff found");
+    end
+    return state, shieldName, stacks;
+end
+
+
+--[[ ----------------------------------------------------------------
+    Create Shield Reminder Frame
+    
+    Creates a movable frame that auto-sizes to fit the text content.
+-------------------------------------------------------------------]]
+function COE_QoL:CreateShieldReminderFrame()
+    if COE_ShieldReminderFrame then return end
+    
+    local frame = CreateFrame("Frame", "COE_ShieldReminderFrame", UIParent);
+    frame:SetWidth(180);  -- Will be auto-adjusted
+    frame:SetHeight(28);
+    frame:SetPoint("CENTER", UIParent, "CENTER", -200, 100);
+    frame:SetMovable(true);
+    frame:EnableMouse(true);
+    frame:SetClampedToScreen(true);
+    frame:RegisterForDrag("LeftButton");
+    
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    });
+    frame:SetBackdropColor(0, 0, 0, 0.8);
+    
+    -- Single status text line - centered in frame
+    local statusText = frame:CreateFontString("COE_ShieldReminderStatus", "OVERLAY", "GameFontNormal");
+    statusText:SetPoint("CENTER", frame, "CENTER", 0, 0);
+    statusText:SetText("Shield – MISSING");
+    statusText:SetTextColor(1, 0.1, 0.1);  -- Red default
+    
+    frame:SetScript("OnDragStart", function()
+        this:StartMoving();
+    end);
+    
+    frame:SetScript("OnDragStop", function()
+        this:StopMovingOrSizing();
+        COE_QoL:SaveShieldReminderPosition();
+    end);
+    
+    frame:Hide();
+end
+
+
+function COE_QoL:SaveShieldReminderPosition()
+    if not COE_ShieldReminderFrame then return end
+    if not COEFramePositions then COEFramePositions = {} end
+    
+    COEFramePositions.ShieldReminder = COEFramePositions.ShieldReminder or {};
+    COEFramePositions.ShieldReminder.x = COE_ShieldReminderFrame:GetLeft() or 0;
+    COEFramePositions.ShieldReminder.y = COE_ShieldReminderFrame:GetTop() or 0;
+end
+
+
+function COE_QoL:RestoreShieldReminderPosition()
+    if not COE_ShieldReminderFrame then return end
+    if not COEFramePositions then return end
+    if not COEFramePositions.ShieldReminder then return end
+    
+    local pos = COEFramePositions.ShieldReminder;
+    if pos.x and pos.y and pos.x ~= 0 and pos.y ~= 0 then
+        COE_ShieldReminderFrame:ClearAllPoints();
+        COE_ShieldReminderFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos.x, pos.y);
+    end
+end
+
+
+--[[ ----------------------------------------------------------------
+    FUNCTION: COE_HealAI_UpdateShieldReminder
+    
+    PURPOSE: Updates the shield reminder display
+    
+    Display format:
+    - Shield active: "Water Shield (7)" 
+    - Shield missing: "MISSING"
+    
+    Visual behavior:
+    - In combat: Full opacity, colored text (green/yellow/red)
+    - Out of combat: 30% frame opacity, grey text
+-------------------------------------------------------------------]]
+function COE_HealAI_UpdateShieldReminder()
+    -- Early out if frame doesn't exist
+    if not COE_ShieldReminderFrame then return end
+    
+    -- Early out and hide if feature is disabled
+    if not COE_Saved or COE_Saved.HB_ShieldReminder ~= 1 then
+        COE_ShieldReminderFrame:Hide();
+        return;
+    end
+    
+    -- Make sure frame is visible
+    if not COE_ShieldReminderFrame:IsVisible() then
+        COE_ShieldReminderFrame:Show();
+    end
+    
+    -- Get shield state using robust helper (stacks is ALWAYS a number)
+    local state, shieldName, stacks = COE_HealAI_GetShieldState("player");
+    
+    -- SAFETY: Ensure stacks is a number
+    stacks = stacks or 0;
+    if type(stacks) ~= "number" then
+        stacks = 0;
+    end
+    
+    -- Check combat state
+    local inCombat = UnitAffectingCombat("player");
+    
+    -- Get the status text element
+    local statusText = COE_ShieldReminderStatus;
+    if not statusText then return end
+    
+    -- Build display text and determine color
+    local displayText = "";
+    local r, g, b = 1, 1, 1;
+    
+    if state == "MISSING" then
+        -- No shield
+        displayText = "MISSING";
+        r, g, b = 1, 0.1, 0.1;  -- Red
+        
+    elseif state == "LOW" then
+        -- Low stacks (1-3) - Yellow
+        local displayName = shieldName or "Shield";
+        displayText = displayName .. " (" .. tostring(stacks) .. ")";
+        r, g, b = 1, 0.9, 0.2;  -- Yellow
+        
+    else  -- state == "OK"
+        -- Healthy shield - Green
+        local displayName = shieldName or "Shield";
+        if stacks > 0 then
+            displayText = displayName .. " (" .. tostring(stacks) .. ")";
+        else
+            displayText = displayName;
+        end
+        r, g, b = 0.2, 1, 0.2;  -- Green
+    end
+    
+    -- Apply combat-based styling
+    if inCombat then
+        -- In combat: full opacity, colored text
+        COE_ShieldReminderFrame:SetAlpha(1.0);
+        statusText:SetTextColor(r, g, b);
+    else
+        -- Out of combat: 30% opacity, grey text
+        COE_ShieldReminderFrame:SetAlpha(0.3);
+        statusText:SetTextColor(0.7, 0.7, 0.7);  -- Grey
+    end
+    
+    -- Update text
+    statusText:SetText(displayText);
+    
+    -- Auto-size frame to fit text with padding
+    local textWidth = statusText:GetStringWidth() or 80;
+    local frameWidth = textWidth + 24;  -- 12px padding on each side
+    if frameWidth < 80 then frameWidth = 80 end  -- Minimum width (smaller now)
+    if frameWidth > 250 then frameWidth = 250 end  -- Maximum width
+    COE_ShieldReminderFrame:SetWidth(frameWidth);
+end
+
+
+--[[ ----------------------------------------------------------------
+    METHOD: COE_QoL:UpdateShieldReminderDisplay
+    
+    PURPOSE: Wrapper for backwards compatibility with OnUpdate handler
+-------------------------------------------------------------------]]
+function COE_QoL:UpdateShieldReminderDisplay()
+    COE_HealAI_UpdateShieldReminder();
+end
+
+
+function COE_QoL:SetShieldReminderVisible(visible)
+    if not COE_ShieldReminderFrame then
+        self:CreateShieldReminderFrame();
+    end
+    
+    if visible then
+        self:RestoreShieldReminderPosition();
+        COE_ShieldReminderFrame:Show();
+        COE_HealAI_UpdateShieldReminder();
+    else
+        COE_ShieldReminderFrame:Hide();
     end
 end

@@ -3772,3 +3772,33 @@ function COE_Heal:CastChainHeal(target)
 	
 	return true;
 end
+
+
+--[[ ================================================================
+    GLOBAL MACRO ENTRY POINT
+    
+    Allows players to trigger HealAI from a macro:
+        /run Coa_HealAI()
+    
+    This is a safe wrapper that:
+    - Checks if addon is initialized
+    - Checks if HealAI is enabled
+    - Calls the same function as the keybind (COE_Heal:HealBrain)
+    - Never throws errors if called when addon is not ready
+================================================================ ]]--
+
+function Coa_HealAI()
+    -- Safety checks - silently do nothing if not ready
+    if not COE then return end
+    if not COE.Initialized then return end
+    if not COE_Heal then return end
+    if not COE_Heal.HealBrain then return end
+    
+    -- Check if HealAI is enabled (same check as internal code)
+    if not COE_Saved or COE_Saved.HB_Enable ~= 1 then
+        return;
+    end
+    
+    -- Call the same function the keybind uses
+    COE_Heal:HealBrain();
+end

@@ -2,6 +2,147 @@
 CALL OF ELEMENTS - HEALAI FORK - CHANGELOG
 ================================================================================
 
+v3.12.5 - Macro Entry Point
+---------------------------------------------------------------------------
+NEW FEATURE:
+- Added global function Coa_HealAI() for macro usage
+  
+  Usage:
+      /run Coa_HealAI()
+  
+  This triggers the same smart healing behavior as the HealAI keybind.
+  Safe to call anytime - silently does nothing if addon is not ready
+  or HealAI is disabled.
+
+v3.12.4 - Shield Reminder Display Improvements
+---------------------------------------------------------------------------
+CHANGES:
+- Removed "Shield –" prefix from indicator text
+  * Now shows: "Water Shield (7)" instead of "Shield – Active Water Shield (7)"
+  * Missing state shows just: "MISSING"
+  
+- Combat-based visual styling:
+  * In combat: Full opacity (100%), colored text (green/yellow/red)
+  * Out of combat: 30% frame opacity, grey text
+  
+- Reduced minimum frame width from 120px to 80px (cleaner look)
+
+v3.12.3 - Shield Reminder Critical Fix
+---------------------------------------------------------------------------
+CRITICAL FIX:
+- Fixed "attempt to compare nil with number" error on line 541
+  ROOT CAUSE: SHIELD_UPDATE_INTERVAL was defined AFTER the OnUpdate function
+  that used it, so Lua saw it as nil during execution.
+  FIX: Moved all shield constants (SHIELD_UPDATE_INTERVAL, SHIELD_NAMES,
+  COE_QoL.lastShieldUpdate) to the TOP of COE_SuperWoW_QoL.lua with the
+  other constants, ensuring they exist before OnUpdate runs.
+
+UI FIX:
+- Tightened checkbox spacing in Core tab to prevent "Enable Shield Reminder"
+  from overlapping the Close button. Reduced vertical gaps from -8/-18 to -2/-12.
+
+v3.12.2 - Shield Reminder Refinements
+---------------------------------------------------------------------------
+FIXES:
+1. Shield name now shows clean pattern ("Water Shield") instead of tooltip text
+   - Prevents any rank/number suffixes from appearing in the display
+2. Added additional nil guards throughout shield detection
+3. Auto-sizing frame: minimum 120px, maximum 300px width
+4. Debug output shows actual stack count when /coe debug is enabled
+
+NOTE: If you still see "attempt to compare nil with number" errors, please
+      delete your WTF folder cache and reload the addon. The fix is in place
+      but WoW may be running cached Lua from the old version.
+
+v3.12.1 - Shield Reminder Bug Fixes
+---------------------------------------------------------------------------
+BUG FIXES:
+
+1. Fixed "attempt to compare nil with number" error (line 541)
+   - ROOT CAUSE: UnitBuff() returns nil for stack count on some shields,
+     and the code compared this nil value directly
+   - FIX: Created robust COE_HealAI_GetShieldState() function that:
+     * Always returns stacks as integer (defaults to 0 if nil)
+     * Returns state as "MISSING", "LOW", or "OK" string
+     * Never performs nil comparisons
+
+2. Fixed Shield Reminder checkbox appearing off-screen
+   - ROOT CAUSE: Checkbox was anchored to a header that had negative offsets
+   - FIX: Removed unnecessary "Shaman Buffs:" header, anchored checkbox
+     directly under "Ignore pets and guardians" checkbox
+
+3. Improved reminder text format
+   - Now shows: "Shield – Active Water Shield(5)" or "Shield – Low Lightning Shield(2)"
+   - Single line display instead of two separate lines
+   - Wider frame (140px) to accommodate longer text
+
+TECHNICAL CHANGES:
+- New global function: COE_HealAI_GetShieldState(unit)
+  Returns: state ("MISSING"/"LOW"/"OK"), shieldName (string or nil), stacks (integer)
+- New global function: COE_HealAI_UpdateShieldReminder()
+  Updates display using the robust state detection
+- Added nil-safe checks in OnUpdate handler for all throttle timestamps
+
+v3.12.0 - Shaman Shield Reminder
+---------------------------------------------------------------------------
+NEW FEATURE: Shield Reminder Frame
+
+A simple, informational indicator showing the status of your Water, Lightning,
+or Earth Shield buff. Helps you maintain shield uptime without staring at
+your buff bar.
+
+Visual states:
+- "Shield – Active" (green): Shield is up with 4+ stacks
+- "Shield – Low" (yellow): Shield is up but only 1-3 stacks remaining
+- "Shield – Missing" (red in combat, grey out of combat): No shield buff
+
+Features:
+- Tracks Lightning Shield, Water Shield, and Earth Shield (including Turtle WoW)
+- Shows the shield type abbreviation and stack count (e.g., "LS (7)", "WS (5)")
+- Small movable frame - drag to reposition, position saved between sessions
+- Red "Missing" warning only appears while in combat (not in town/resting)
+- No automation: purely visual, no casting, no keybind interference
+
+UI Location:
+- Enable in HealAI config → Core tab → "Shaman Buffs" section
+- Checkbox: "Enable Shield Reminder"
+
+Does NOT require SuperWoW - uses standard UnitBuff API.
+
+v3.11.1 - Dispel Fix & Pet Healing Fix
+---------------------------------------------------------------------------
+BUG FIXES:
+
+1. Dispel "Nothing to dispel" Error Fix
+   - ROOT CAUSE: Dispel code used CastSpell() + SpellTargetUnit() pattern,
+     which doesn't work for helpful spells in Vanilla 1.12
+   - FIX: Changed to TargetUnit() before CastSpell() (same as healing)
+   - Dispels now correctly target the unit with the debuff
+   - Added comprehensive debug output for dispel scanning:
+     * Shows each debuff scanned with type and texture
+     * Shows which unit/debuff was selected for dispel
+     * Shows the exact spell and unit ID used for casting
+
+2. Pet Healing Not Working Fix
+   - ROOT CAUSE: When HB_IgnorePets was 0 (OFF), the code evaluated
+     (HB_IgnorePets == 1) as false, but ignorePets defaulted to true,
+     so it remained true instead of becoming false
+   - FIX: Added explicit nil check and proper assignment:
+     * If HB_IgnorePets is nil (never set), defaults to true (ignore)
+     * If HB_IgnorePets is 1, ignorePets = true (ignore)
+     * If HB_IgnorePets is 0, ignorePets = false (include pets)
+   - Warlock/Hunter pets now properly included as heal candidates when
+     "Ignore pets" checkbox is unchecked
+   - Added debug output for pet candidate handling:
+     * Shows ignorePets setting value
+     * Shows each pet being checked or skipped
+     * Shows when pets are added as candidates
+
+TECHNICAL NOTES:
+- Spam mode still always ignores pets (by design)
+- No UI changes - existing checkbox behavior now works correctly
+- Debug output via /coe debug shows full dispel and pet handling trace
+
 v3.11.0 - QuickHeal-Inspired Heal Prediction
 ---------------------------------------------------------------------------
 Major improvement to rank selection logic, inspired by the QuickHeal addon.

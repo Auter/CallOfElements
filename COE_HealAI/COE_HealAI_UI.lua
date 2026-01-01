@@ -138,6 +138,7 @@ local function HB_EnsureDefaults()
     -- SuperWoW QoL features
     if COE_Saved.HB_ShowTotemRange == nil then COE_Saved.HB_ShowTotemRange = 0 end  -- Off by default
     if COE_Saved.HB_ShowTankDistance == nil then COE_Saved.HB_ShowTankDistance = 0 end  -- Off by default
+    if COE_Saved.HB_ShieldReminder == nil then COE_Saved.HB_ShieldReminder = 0 end  -- Off by default
 end
 
 local function HB_SetTankFromTarget(which)
@@ -252,6 +253,13 @@ local function HB_Save()
             COE_QoL:SetTankDistanceVisible(COE_Saved.HB_ShowTankDistance == 1)
         end
     end
+    -- Shield Reminder (not SuperWoW-dependent)
+    if COE_HB_ShieldReminder then
+        COE_Saved.HB_ShieldReminder = (COE_HB_ShieldReminder:GetChecked() and 1 or 0)
+        if COE_QoL then
+            COE_QoL:SetShieldReminderVisible(COE_Saved.HB_ShieldReminder == 1)
+        end
+    end
 end
 
 local function HB_Refresh()
@@ -364,6 +372,9 @@ local function HB_Refresh()
     end
     if COE_HB_ShowTankDistance then 
         COE_HB_ShowTankDistance:SetChecked(COE_Saved.HB_ShowTankDistance == 1)
+    end
+    if COE_HB_ShieldReminder then
+        COE_HB_ShieldReminder:SetChecked(COE_Saved.HB_ShieldReminder == 1)
     end
 end
 
@@ -532,22 +543,29 @@ local function HB_CreateUI()
     otBtn:SetScript("OnClick", function() HB_SetTankFromTarget("OFF"); HB_Save(); end)
 
     local tot = CreateFrame("CheckButton", "COE_HB_UseToT", tabCore, "UICheckButtonTemplate")
-    tot:SetPoint("TOPLEFT", otEdit, "BOTTOMLEFT", 0, -18)
+    tot:SetPoint("TOPLEFT", otEdit, "BOTTOMLEFT", 0, -12)  -- Reduced from -18
     getglobal(tot:GetName().."Text"):SetText("Use Target-of-Target if no tank names set")
     tot:SetScript("OnClick", HB_Save)
     tot.tooltipText = "If no tank name is set or tank is not found in group,|nHealBrain will use your target's target as a tank fallback."
 
     local prioTank = CreateFrame("CheckButton", "COE_HB_PrioritizeTank", tabCore, "UICheckButtonTemplate")
-    prioTank:SetPoint("TOPLEFT", tot, "BOTTOMLEFT", 0, -8)
+    prioTank:SetPoint("TOPLEFT", tot, "BOTTOMLEFT", 0, -2)  -- Reduced from -8
     getglobal(prioTank:GetName().."Text"):SetText("Prioritize tank(s) before others")
     prioTank:SetScript("OnClick", HB_Save)
     prioTank.tooltipText = "When enabled, tanks are healed before other raid members|neven if others have lower HP (unless in emergency)."
 
     local ignorePets = CreateFrame("CheckButton", "COE_HB_IgnorePets", tabCore, "UICheckButtonTemplate")
-    ignorePets:SetPoint("TOPLEFT", prioTank, "BOTTOMLEFT", 0, -8)
+    ignorePets:SetPoint("TOPLEFT", prioTank, "BOTTOMLEFT", 0, -2)  -- Reduced from -8
     getglobal(ignorePets:GetName().."Text"):SetText("Ignore pets and guardians")
     ignorePets:SetScript("OnClick", HB_Save)
     ignorePets.tooltipText = "Skip pets, totems, and guardians when scanning for heal targets."
+
+    -- Shield Reminder checkbox
+    local shieldReminder = CreateFrame("CheckButton", "COE_HB_ShieldReminder", tabCore, "UICheckButtonTemplate")
+    shieldReminder:SetPoint("TOPLEFT", ignorePets, "BOTTOMLEFT", 0, -2)  -- Tight spacing
+    getglobal(shieldReminder:GetName().."Text"):SetText("Enable Shield Reminder")
+    shieldReminder:SetScript("OnClick", HB_Save)
+    shieldReminder.tooltipText = "Shows a small movable indicator for Water/Lightning/Earth Shield status.|nGreen = Active (4+ stacks), Yellow = Low (1-3 stacks), Red = Missing."
 
 -- THRESHOLDS TAB (fixed function signature - no 'self')
 HB_MakeHeader(tabThr, "Healing Thresholds", tabThr, 8, -8)
