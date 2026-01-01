@@ -33,6 +33,8 @@ Use /coe or the keybind to open the configuration dialog.
   - Raid: Group filters and SuperWoW distance features
     
   - Advanced: HealComm options, spam mode, spell selection
+  
+Macro /run Coa_HealAI() to call function, or set keybind from default blizzard UI
     
 This project is:
 
